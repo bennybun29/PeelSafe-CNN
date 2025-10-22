@@ -3,6 +3,7 @@ import io
 import yaml
 import torch
 import torch.nn.functional as F
+import ollama
 from PIL import Image
 from typing import List
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query
@@ -151,6 +152,26 @@ async def predict(file: UploadFile = File(...), verification_threshold: float = 
     # Run inference in threadpool to avoid blocking event loop
     try:
         result = await run_in_threadpool(predict_pil_image, pil_image, verification_threshold)
+
+        # Only call Ollama if a banana leaf is detected
+        if result.get('is_banana_leaf') and 'class' in result:
+            disease_name = result['class'].replace('_', ' ')
+            prompt = f"Provide a concise but informative explanation about {disease_name} in banana plants, including its causes, symptoms, and prevention methods."
+
+            try:
+                ollama_response = ollama.chat(
+                    model='symonvalencia/peelsafeV1:latest',  # replace with your pulled model’s name
+                    messages=[
+                        {"role": "system", "content": "You are an agricultural expert specializing in banana diseases."},
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+                context = ollama_response['message']['content']
+                result['ollama_context'] = context
+            except Exception as e:
+                result['ollama_context'] = f"Ollama context unavailable: {str(e)}"
+
         return JSONResponse(result)
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
