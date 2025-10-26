@@ -1,4 +1,5 @@
 import os
+import random
 import io
 import yaml
 import torch
@@ -10,6 +11,9 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.concurrency import run_in_threadpool
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from pathlib import Path
 from torchvision import transforms
 
 from models.mobilenet import get_model
@@ -19,8 +23,12 @@ CONFIG_PATH = os.environ.get('CONFIG_PATH', 'configs/config.yaml')
 MODEL_PATH = os.environ.get('MODEL_PATH', 'results/best_model.pth')
 VERIFIER_PATH = os.environ.get('VERIFIER_PATH', 'results/verifier_model.pth')
 DEFAULT_VERIFICATION_THRESHOLD = float(os.environ.get("VERIFICATION_THRESHOLD", 0.5))
+BASE_DIR = Path(__file__).resolve().parent.parent
+IMAGES_DIR = BASE_DIR / "data" / "train"
 
 app = FastAPI(title="PeelSafe CNN Banana Leaf Disease Prediction API")
+
+app.mount("/static", StaticFiles(directory=IMAGES_DIR), name="static")
 
 app.add_middleware(
     CORSMiddleware, 
@@ -175,3 +183,27 @@ async def predict(file: UploadFile = File(...), verification_threshold: float = 
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+    
+@app.get("/disease-images")
+async def get_disease_images(name: str = Query(..., description="Disease name")):
+    disease_dir = IMAGES_DIR / name
+    if not disease_dir.exists() or not disease_dir.is_dir():
+        raise HTTPException(status_code=404, detail=f"No sample images found for {name}")
+
+    image_files = [
+        f for f in os.listdir(disease_dir)
+        if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))
+    ]
+
+    if not image_files:
+        raise HTTPException(status_code=404, detail=f"No image files found for {name}")
+
+    sample_count = min(4, len(image_files))
+    sample_files = random.sample(image_files, sample_count)
+
+    base_url = "http://localhost:8000"
+    image_urls = [f"{base_url}/static/{name}/{f}" for f in sample_files]
+
+    random.shuffle(image_urls)
+
+    return {"images": image_urls}
