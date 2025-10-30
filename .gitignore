@@ -34,8 +34,10 @@ ENV/
 *.swo
 .DS_Store
 
+dataset.zip
 # Project specific
 data/
+!src/data/
 results/
 *.pth
 *.pt
