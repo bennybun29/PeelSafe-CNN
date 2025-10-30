@@ -161,28 +161,34 @@ async def predict(file: UploadFile = File(...), verification_threshold: float = 
     try:
         result = await run_in_threadpool(predict_pil_image, pil_image, verification_threshold)
 
-        # Only call Ollama if a banana leaf is detected
+        # Only call Ollama if a banana leaf is detected AND it's not healthy
         if result.get('is_banana_leaf') and 'class' in result:
-            disease_name = result['class'].replace('_', ' ')
-            prompt = f"Provide a concise but informative explanation about {disease_name} in banana plants, including its causes, symptoms, and prevention methods."
+            disease_name = result['class']
 
-            try:
-                ollama_response = ollama.chat(
-                    model='symonvalencia/peelsafeV1:latest',  # replace with your pulled model’s name
-                    messages=[
-                        {"role": "system", "content": "You are an agricultural expert specializing in banana diseases."},
-                        {"role": "user", "content": prompt}
-                    ]
-                )
-                context = ollama_response['message']['content']
-                result['ollama_context'] = context
-            except Exception as e:
-                result['ollama_context'] = f"Ollama context unavailable: {str(e)}"
+            # Skip Ollama if the leaf is healthy
+            if disease_name == 'Banana_Healthy':
+                result['ollama_context'] = "The banana leaf appears healthy. No disease information is required."
+            else:
+                prompt = f"Provide a concise but informative explanation about {disease_name.replace('_', ' ')} in banana plants, including its causes, symptoms, and prevention methods."
+
+                try:
+                    ollama_response = ollama.chat(
+                        model='symonvalencia/peelsafeV1:latest',  # replace with your pulled model’s name
+                        messages=[
+                            {"role": "system", "content": "You are an agricultural expert specializing in banana diseases."},
+                            {"role": "user", "content": prompt}
+                        ]
+                    )
+                    context = ollama_response['message']['content']
+                    result['ollama_context'] = context
+                except Exception as e:
+                    result['ollama_context'] = f"Ollama context unavailable: {str(e)}"
 
         return JSONResponse(result)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+
     
 @app.get("/disease-images")
 async def get_disease_images(name: str = Query(..., description="Disease name")):

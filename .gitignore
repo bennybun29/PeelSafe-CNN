@@ -37,7 +37,6 @@ ENV/
 # Project specific
 data/
 results/
-models/
 *.pth
 *.pt
 *.ckpt
