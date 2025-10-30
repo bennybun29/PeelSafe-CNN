@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
-from torchvision.models import mobilenet_v2, MobileNet_V2_Weights
+from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
 
 class BananaLeafClassifier(nn.Module):
-    """MobileNetV2-based classifier for banana leaf diseases"""
+    """EfficientNet-based classifier for banana leaf diseases"""
     def __init__(self, num_classes, pretrained=True):
         """
         Args:
@@ -12,17 +12,17 @@ class BananaLeafClassifier(nn.Module):
         """
         super(BananaLeafClassifier, self).__init__()
         
-        # Load MobileNetV2 with pretrained weights if specified
+        # Load EfficientNet with pretrained weights if specified
         if pretrained:
-            self.model = mobilenet_v2(weights=MobileNet_V2_Weights.DEFAULT)
+            self.model = efficientnet_b0(weights=EfficientNet_B0_Weights.DEFAULT)
         else:
-            self.model = mobilenet_v2(weights=None)
+            self.model = efficientnet_b0(weights=None)
         
         # Replace the classifier with a new one
-        in_features = self.model.classifier[-1].in_features
+        num_features = self.model.classifier[1].in_features
         self.model.classifier = nn.Sequential(
             nn.Dropout(p=0.2),
-            nn.Linear(in_features, num_classes)
+            nn.Linear(num_features, num_classes)
         )
 
     def forward(self, x):
@@ -43,6 +43,9 @@ def get_model(config):
     Returns:
         BananaLeafClassifier: Model instance
     """
+    if config['model']['name'].lower() != 'efficientnet_b0':
+        print(f"Warning: Config specifies {config['model']['name']} but using EfficientNet-B0")
+        
     model = BananaLeafClassifier(
         num_classes=config['model']['num_classes'],
         pretrained=config['model']['pretrained']

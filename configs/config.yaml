@@ -1,7 +1,7 @@
 model:
-  name: MobileNetV2
+  name: efficientnet_b0
   pretrained: true
-  num_classes: 8  # 7 disease classes + 1 healthy class
+  num_classes: 8 # 7 disease classes + 1 healthy class
 
 training:
   batch_size: 32
